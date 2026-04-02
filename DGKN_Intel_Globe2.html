@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>DGKN@LABS — GLOBAL INTELLIGENCE TERMINAL</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#050a05;overflow:hidden;font-family:'Share Tech Mono',monospace;color:#00ff88}
+
+/* SCANLINES OVERLAY */
+body::before{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,255,136,0.015) 3px,rgba(0,255,136,0.015) 4px)}
+
+/* VIGNETTE */
+body::after{content:'';position:fixed;inset:0;z-index:998;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 50%,transparent 40%,rgba(0,0,0,0.75) 100%)}
+
+/* MAIN LAYOUT */
+#app{display:grid;grid-template-rows:52px 1fr 44px;height:100vh;width:100vw;gap:0}
+
+/* TOP BAR */
+#topbar{
+  position:relative;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;
+  border-bottom:1px solid rgba(0,255,136,0.2);
+  background:rgba(0,8,3,0.97);
+  flex-shrink:0;
+}
+.logo{font-family:'Orbitron',monospace;font-weight:900;font-size:16px;letter-spacing:0.2em;
+  color:#00ff88;text-shadow:0 0 12px rgba(0,255,136,0.5)}
+.logo span{color:rgba(255,255,255,0.4)}
+.top-center{display:flex;align-items:center;gap:24px}
+.status-pill{display:flex;align-items:center;gap:6px;font-size:9px;letter-spacing:0.2em;color:rgba(0,255,136,0.6)}
+.pulse{width:6px;height:6px;border-radius:50%;background:#00ff88;animation:blink 1.5s ease-in-out infinite;box-shadow:0 0 6px #00ff88}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+.utc{font-family:'Orbitron',monospace;font-size:13px;color:#fff;opacity:0.8;letter-spacing:0.1em}
+.top-right{font-size:9px;letter-spacing:0.15em;color:rgba(0,255,136,0.5);text-align:right;line-height:1.8}
+.top-right b{color:#00ff88}
+
+/* MAIN AREA */
+#main{display:grid;grid-template-columns:180px 1fr 180px;overflow:hidden;position:relative}
+
+/* LEFT PANEL */
+#panel-left{
+  background:rgba(0,6,2,0.9);
+  border-right:1px solid rgba(0,255,136,0.12);
+  padding:12px 0;
+  overflow:hidden;
+  display:flex;flex-direction:column;gap:0;
+  z-index:10;
+}
+.section-title{font-size:7px;letter-spacing:0.35em;color:rgba(0,255,136,0.35);
+  padding:10px 14px 6px;text-transform:uppercase;border-bottom:1px solid rgba(0,255,136,0.08)}
+.metric-row{padding:8px 14px;border-bottom:1px solid rgba(0,255,136,0.06);cursor:default}
+.metric-label{font-size:7px;letter-spacing:0.2em;color:rgba(0,255,136,0.4);margin-bottom:2px}
+.metric-value{font-family:'Orbitron',monospace;font-size:12px;color:#00ff88;text-shadow:0 0 8px rgba(0,255,136,0.3)}
+.metric-bar{height:1px;background:rgba(0,255,136,0.1);margin-top:5px;overflow:hidden}
+.metric-bar-fill{height:100%;background:#00ff88;box-shadow:0 0 4px #00ff88;transition:width 2s ease}
+.threat-item{display:flex;align-items:center;gap:8px;padding:6px 14px;border-bottom:1px solid rgba(0,255,136,0.05);font-size:8px;letter-spacing:0.1em}
+.threat-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.dot-red{background:#ff3333;box-shadow:0 0 5px #ff3333}
+.dot-amber{background:#ffaa00;box-shadow:0 0 5px #ffaa00}
+.dot-green{background:#00ff88;box-shadow:0 0 5px #00ff88}
+.threat-name{color:rgba(255,255,255,0.6);flex:1}
+.threat-lvl{color:rgba(0,255,136,0.5)}
+
+/* MAP CONTAINER */
+#map-wrap{
+  position:relative;overflow:hidden;
+  background:radial-gradient(ellipse at 50% 50%,#030f06 0%,#010601 60%,#000200 100%);
+}
+#map-wrap svg{display:block}
+
+/* GRID LINES on map */
+.graticule{fill:none;stroke:rgba(0,255,136,0.06);stroke-width:0.5}
+.land{fill:#0d2010;stroke:#00ff88;stroke-width:0.4;transition:fill 0.2s}
+.land:hover{fill:#1a3d1f;cursor:crosshair}
+.land.selected{fill:#1f4a25}
+.sphere-outline{fill:none;stroke:rgba(0,255,136,0.15);stroke-width:1}
+.country-label{font-family:'Share Tech Mono',monospace;fill:rgba(0,255,136,0.5);
+  font-size:7px;pointer-events:none;letter-spacing:0.05em}
+
+/* HOT SPOTS */
+.hotspot{cursor:pointer}
+.hotspot circle{fill:rgba(255,60,60,0.8);stroke:rgba(255,60,60,0.3);stroke-width:3;animation:hotpulse 2s ease-in-out infinite}
+@keyframes hotpulse{0%,100%{r:4;opacity:1;stroke-width:3}50%{r:7;opacity:0.4;stroke-width:1}}
+.hotspot-label{font-family:'Share Tech Mono',monospace;fill:rgba(255,120,120,0.9);font-size:7px;letter-spacing:0.1em}
+
+/* CROSSHAIR */
+.crosshair-h,.crosshair-v{stroke:rgba(0,255,136,0.15);stroke-width:0.5;pointer-events:none}
+
+/* OVERLAY INFO */
+#map-overlay{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  display:flex;gap:20px;align-items:center;
+  background:rgba(0,6,2,0.85);
+  border:1px solid rgba(0,255,136,0.15);
+  padding:6px 16px;
+  z-index:20;
+  pointer-events:none;
+}
+.ov-item{font-size:9px;letter-spacing:0.15em;color:rgba(0,255,136,0.5)}
+.ov-item b{color:#00ff88;font-weight:normal}
+
+/* TOOLTIP */
+#tooltip{
+  position:absolute;display:none;
+  background:rgba(0,10,4,0.95);
+  border:1px solid rgba(0,255,136,0.3);
+  border-left:2px solid #00ff88;
+  padding:8px 12px;font-size:9px;
+  letter-spacing:0.1em;z-index:200;pointer-events:none;
+  min-width:140px;
+}
+#tooltip .tt-name{font-family:'Orbitron',monospace;font-size:11px;color:#00ff88;margin-bottom:4px}
+#tooltip .tt-row{color:rgba(0,255,136,0.5);margin:2px 0}
+#tooltip .tt-row b{color:rgba(255,255,255,0.7);margin-left:6px}
+
+/* CORNER DECORATIONS */
+.corner-deco{position:absolute;z-index:20;pointer-events:none}
+.c-tl{top:0;left:0}
+.c-tr{top:0;right:0;transform:scaleX(-1)}
+.c-bl{bottom:0;left:0;transform:scaleY(-1)}
+.c-br{bottom:0;right:0;transform:scale(-1,-1)}
+
+/* RIGHT PANEL */
+#panel-right{
+  background:rgba(0,6,2,0.9);
+  border-left:1px solid rgba(0,255,136,0.12);
+  padding:12px 0;overflow:hidden;
+  display:flex;flex-direction:column;gap:0;z-index:10;
+}
+
+/* LOG FEED */
+.log-entry{padding:5px 14px;border-bottom:1px solid rgba(0,255,136,0.05);font-size:7px;letter-spacing:0.08em;line-height:1.5}
+.log-time{color:rgba(0,255,136,0.3)}
+.log-msg{color:rgba(255,255,255,0.5);margin-top:1px}
+.log-msg.warn{color:rgba(255,170,0,0.7)}
+.log-msg.alert{color:rgba(255,80,80,0.7)}
+
+/* MINI CHART */
+.sparkline-wrap{padding:8px 14px}
+.spark-label{font-size:7px;letter-spacing:0.2em;color:rgba(0,255,136,0.35);margin-bottom:4px}
+.spark-canvas{width:100%;height:40px;display:block}
+
+/* BOTTOM BAR */
+#bottombar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;
+  border-top:1px solid rgba(0,255,136,0.15);
+  background:rgba(0,8,3,0.97);
+  flex-shrink:0;z-index:100;
+}
+.coord-display{font-size:9px;letter-spacing:0.12em;color:rgba(0,255,136,0.5)}
+.coord-display b{color:#00ff88;margin-left:4px}
+.bottom-center{font-size:8px;letter-spacing:0.3em;color:rgba(0,255,136,0.2);text-transform:uppercase}
+.classify{font-size:8px;letter-spacing:0.25em;color:rgba(255,50,50,0.4);text-align:right}
+
+/* ZOOM CONTROLS */
+#zoom-btns{
+  position:absolute;bottom:60px;right:200px;z-index:50;
+  display:flex;flex-direction:column;gap:4px;
+}
+.zoom-btn{
+  width:28px;height:28px;background:rgba(0,10,4,0.9);
+  border:1px solid rgba(0,255,136,0.2);color:#00ff88;
+  font-family:'Share Tech Mono',monospace;font-size:16px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;
+}
+.zoom-btn:hover{background:rgba(0,255,136,0.1);border-color:rgba(0,255,136,0.4)}
+
+/* ROTATION TOGGLE */
+#rot-btn{
+  position:absolute;bottom:60px;left:190px;z-index:50;
+  background:rgba(0,10,4,0.9);border:1px solid rgba(0,255,136,0.2);
+  color:rgba(0,255,136,0.5);font-family:'Share Tech Mono',monospace;
+  font-size:7px;letter-spacing:0.15em;padding:5px 10px;cursor:pointer;transition:all 0.15s;
+}
+#rot-btn:hover{border-color:rgba(0,255,136,0.4);color:#00ff88}
+#rot-btn.active{border-color:#00ff88;color:#00ff88;background:rgba(0,255,136,0.05)}
+
+/* PROJECTION SELECT */
+#proj-select{
+  position:absolute;top:52px;right:190px;z-index:50;
+  display:flex;gap:0;
+}
+.proj-btn{
+  background:rgba(0,8,3,0.9);border:1px solid rgba(0,255,136,0.12);
+  color:rgba(0,255,136,0.4);font-family:'Share Tech Mono',monospace;
+  font-size:7px;letter-spacing:0.15em;padding:5px 10px;cursor:pointer;
+  transition:all 0.15s;margin-left:-1px;
+}
+.proj-btn:hover{color:#00ff88;background:rgba(0,255,136,0.06)}
+.proj-btn.active{color:#00ff88;background:rgba(0,255,136,0.08);border-color:rgba(0,255,136,0.35)}
+
+/* RESPONSIVE */
+@media(max-width:640px){
+  #panel-left,#panel-right{display:none}
+  #main{grid-template-columns:1fr}
+  #proj-select{display:none}
+  #rot-btn{display:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="logo">DGKN<span>@</span>LABS</div>
+    <div class="top-center">
+      <div class="status-pill"><div class="pulse"></div>SYSTEM ONLINE</div>
+      <div class="utc" id="utc-clock">00:00:00 UTC</div>
+      <div class="status-pill"><div class="pulse" style="background:#ffaa00;box-shadow:0 0 6px #ffaa00"></div>247 NODES TRACKED</div>
+    </div>
+    <div class="top-right">
+      RENDERER <b>D3 / SVG</b><br>
+      PROJ <b id="proj-label">EQUIRECTANGULAR</b>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <!-- LEFT PANEL -->
+    <div id="panel-left">
+      <div class="section-title">SYS METRICS</div>
+      <div class="metric-row">
+        <div class="metric-label">GLOBAL COVERAGE</div>
+        <div class="metric-value">98.7%</div>
+        <div class="metric-bar"><div class="metric-bar-fill" id="bar1" style="width:0%"></div></div>
+      </div>
+      <div class="metric-row">
+        <div class="metric-label">SIGNAL STRENGTH</div>
+        <div class="metric-value" id="sig-val">87.3 dBm</div>
+        <div class="metric-bar"><div class="metric-bar-fill" id="bar2" style="width:0%;background:#ffaa00;box-shadow:0 0 4px #ffaa00"></div></div>
+      </div>
+      <div class="metric-row">
+        <div class="metric-label">DATA THROUGHPUT</div>
+        <div class="metric-value" id="tput-val">4.2 TB/s</div>
+        <div class="metric-bar"><div class="metric-bar-fill" id="bar3" style="width:0%"></div></div>
+      </div>
+      <div class="metric-row">
+        <div class="metric-label">ACTIVE AGENTS</div>
+        <div class="metric-value" id="agents-val">342</div>
+        <div class="metric-bar"><div class="metric-bar-fill" id="bar4" style="width:0%;background:#ff5555;box-shadow:0 0 4px #ff5555"></div></div>
+      </div>
+
+      <div class="section-title" style="margin-top:8px">THREAT MATRIX</div>
+      <div class="threat-item"><div class="threat-dot dot-red"></div><div class="threat-name">SECTOR 7G</div><div class="threat-lvl">CRIT</div></div>
+      <div class="threat-item"><div class="threat-dot dot-red"></div><div class="threat-name">NODE ECHO-3</div><div class="threat-lvl">HIGH</div></div>
+      <div class="threat-item"><div class="threat-dot dot-amber"></div><div class="threat-name">RELAY-BRAVO</div><div class="threat-lvl">MED</div></div>
+      <div class="threat-item"><div class="threat-dot dot-amber"></div><div class="threat-name">CELL KILO-9</div><div class="threat-lvl">MED</div></div>
+      <div class="threat-item"><div class="threat-dot dot-green"></div><div class="threat-name">BASE ALPHA</div><div class="threat-lvl">CLEAR</div></div>
+      <div class="threat-item"><div class="threat-dot dot-green"></div><div class="threat-name">OUTPOST 12</div><div class="threat-lvl">CLEAR</div></div>
+
+      <div class="section-title" style="margin-top:8px">FREQ MONITOR</div>
+      <div class="sparkline-wrap">
+        <div class="spark-label">SIGNAL ACTIVITY</div>
+        <canvas class="spark-canvas" id="spark1"></canvas>
+      </div>
+      <div class="sparkline-wrap">
+        <div class="spark-label">PACKET FLOW</div>
+        <canvas class="spark-canvas" id="spark2"></canvas>
+      </div>
+    </div>
+
+    <!-- MAP WRAPPER -->
+    <div id="map-wrap">
+      <!-- Corners -->
+      <div class="corner-deco c-tl">
+        <svg width="48" height="48" viewBox="0 0 48 48"><path d="M0,24 L0,0 L24,0" fill="none" stroke="rgba(0,255,136,0.4)" stroke-width="1.5"/></svg>
+      </div>
+      <div class="corner-deco c-tr">
+        <svg width="48" height="48" viewBox="0 0 48 48"><path d="M0,24 L0,0 L24,0" fill="none" stroke="rgba(0,255,136,0.4)" stroke-width="1.5"/></svg>
+      </div>
+      <div class="corner-deco c-bl">
+        <svg width="48" height="48" viewBox="0 0 48 48"><path d="M0,24 L0,0 L24,0" fill="none" stroke="rgba(0,255,136,0.4)" stroke-width="1.5"/></svg>
+      </div>
+      <div class="corner-deco c-br">
+        <svg width="48" height="48" viewBox="0 0 48 48"><path d="M0,24 L0,0 L24,0" fill="none" stroke="rgba(0,255,136,0.4)" stroke-width="1.5"/></svg>
+      </div>
+
+      <!-- Top overlay -->
+      <div id="map-overlay">
+        <div class="ov-item">LON <b id="ov-lon">0.00°</b></div>
+        <div class="ov-item">LAT <b id="ov-lat">0.00°</b></div>
+        <div class="ov-item">ZOOM <b id="ov-zoom">1.0x</b></div>
+        <div class="ov-item">PROJ <b id="ov-proj">EQUIRECT</b></div>
+      </div>
+
+      <svg id="map-svg"></svg>
+      <div id="tooltip">
+        <div class="tt-name" id="tt-name">—</div>
+        <div class="tt-row">REGION <b id="tt-region">—</b></div>
+        <div class="tt-row">STATUS <b id="tt-status">—</b></div>
+        <div class="tt-row">THREAT <b id="tt-threat">—</b></div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div id="panel-right">
+      <div class="section-title">INTEL LOG</div>
+      <div id="log-feed"></div>
+
+      <div class="section-title" style="margin-top:8px">SATELLITE TRACK</div>
+      <div class="sparkline-wrap">
+        <div class="spark-label">ORBITAL PASSES / HR</div>
+        <canvas class="spark-canvas" id="spark3"></canvas>
+      </div>
+
+      <div class="section-title" style="margin-top:8px">ACTIVE REGIONS</div>
+      <div id="region-list"></div>
+    </div>
+
+  </div>
+
+  <!-- ZOOM & ROT CONTROLS -->
+  <div id="zoom-btns">
+    <button class="zoom-btn" onclick="changeZoom(1.3)">+</button>
+    <button class="zoom-btn" onclick="changeZoom(0.77)">−</button>
+    <button class="zoom-btn" onclick="resetView()" style="font-size:9px;letter-spacing:0.05em">RST</button>
+  </div>
+  <button id="rot-btn" class="active" onclick="toggleRotate()">⟳ AUTO ROTATE</button>
+
+  <!-- PROJECTION SELECTOR -->
+  <div id="proj-select">
+    <button class="proj-btn active" onclick="setProj('equirect','EQUIRECT')">EQUIRECT</button>
+    <button class="proj-btn" onclick="setProj('mercator','MERCATOR')">MERCATOR</button>
+    <button class="proj-btn" onclick="setProj('ortho','ORTHOGRAPHIC')">ORTHO</button>
+    <button class="proj-btn" onclick="setProj('naturalEarth','NAT.EARTH')">NAT.EARTH</button>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div id="bottombar">
+    <div class="coord-display">
+      LON <b id="bot-lon">0.000°</b> &nbsp;&nbsp; LAT <b id="bot-lat">0.000°</b>
+    </div>
+    <div class="bottom-center">DGKN@LABS · GLOBAL INTELLIGENCE TERMINAL · v2.1</div>
+    <div class="classify">⬛ CLASSIFIED · EYES ONLY</div>
+  </div>
+
+</div>
+
+<!-- D3 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+
+<script>
+// ── UTC CLOCK ──
+function updateClock(){
+  const d=new Date();
+  const h=String(d.getUTCHours()).padStart(2,'0');
+  const m=String(d.getUTCMinutes()).padStart(2,'0');
+  const s=String(d.getUTCSeconds()).padStart(2,'0');
+  document.getElementById('utc-clock').textContent=h+':'+m+':'+s+' UTC';
+}
+setInterval(updateClock,1000); updateClock();
+
+// ── SPARKLINES ──
+function drawSpark(id,color,seed){
+  const c=document.getElementById(id);
+  if(!c)return;
+  const ctx=c.getContext('2d');
+  const w=c.offsetWidth||150, h=40;
+  c.width=w; c.height=h;
+  const pts=[];
+  let v=seed||Math.random()*30+20;
+  for(let i=0;i<40;i++){v=Math.max(5,Math.min(38,v+(Math.random()-0.48)*8));pts.push(v)}
+  ctx.clearRect(0,0,w,h);
+  ctx.beginPath();
+  pts.forEach((p,i)=>{
+    const x=i/(pts.length-1)*w, y=h-p/40*h;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle=color; ctx.lineWidth=1; ctx.stroke();
+  ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath();
+  ctx.fillStyle=color.replace(')',',0.08)').replace('rgb','rgba'); ctx.fill();
+}
+function refreshSparks(){
+  drawSpark('spark1','rgb(0,255,136)',30);
+  drawSpark('spark2','rgb(255,170,0)',20);
+  drawSpark('spark3','rgb(0,200,255)',25);
+}
+setTimeout(refreshSparks,200);
+setInterval(refreshSparks,3000);
+
+// ── ANIMATE BARS ──
+setTimeout(()=>{
+  document.getElementById('bar1').style.width='98.7%';
+  document.getElementById('bar2').style.width='72%';
+  document.getElementById('bar3').style.width='65%';
+  document.getElementById('bar4').style.width='45%';
+},300);
+
+// ── DYNAMIC METRICS ──
+setInterval(()=>{
+  const sig=(82+Math.random()*12).toFixed(1);
+  const tp=(3.8+Math.random()*1.2).toFixed(1);
+  const ag=Math.floor(330+Math.random()*30);
+  document.getElementById('sig-val').textContent=sig+' dBm';
+  document.getElementById('tput-val').textContent=tp+' TB/s';
+  document.getElementById('agents-val').textContent=ag;
+  document.getElementById('bar2').style.width=(60+Math.random()*35)+'%';
+  document.getElementById('bar3').style.width=(50+Math.random()*45)+'%';
+},2500);
+
+// ── LOG FEED ──
+const LOG_MSGS=[
+  {t:'ALERT',m:'Anomaly detected: SECTOR-7G',cls:'alert'},
+  {t:'INFO',m:'Satellite pass: ORBIT-44 visible',cls:''},
+  {t:'WARN',m:'Signal loss: NODE-BRAVO-3',cls:'warn'},
+  {t:'INFO',m:'New connection: IP 185.220.x.x',cls:''},
+  {t:'ALERT',m:'Unauthorized access attempt',cls:'alert'},
+  {t:'INFO',m:'Relay sync: ALPHA-GRID nominal',cls:''},
+  {t:'WARN',m:'High traffic: CHANNEL 7',cls:'warn'},
+  {t:'INFO',m:'Agent check-in: ECHO-7',cls:''},
+  {t:'INFO',m:'Firmware update deployed',cls:''},
+  {t:'ALERT',m:'Perimeter breach: ZONE-12',cls:'alert'},
+  {t:'INFO',m:'Decryption complete: PKT-8821',cls:''},
+];
+let logI=0;
+function addLog(){
+  const feed=document.getElementById('log-feed');
+  const now=new Date();
+  const ts=String(now.getUTCHours()).padStart(2,'0')+':'+String(now.getUTCMinutes()).padStart(2,'0')+':'+String(now.getUTCSeconds()).padStart(2,'0');
+  const msg=LOG_MSGS[logI%LOG_MSGS.length]; logI++;
+  const el=document.createElement('div');
+  el.className='log-entry';
+  el.innerHTML=`<div class="log-time">${ts} UTC</div><div class="log-msg ${msg.cls}">[${msg.t}] ${msg.m}</div>`;
+  feed.insertBefore(el,feed.firstChild);
+  while(feed.children.length>8) feed.removeChild(feed.lastChild);
+}
+addLog(); setInterval(addLog,2800);
+
+// ── REGION LIST ──
+const REGIONS=[
+  {name:'NORTH AMERICA',col:'#00ff88',pct:94},
+  {name:'EUROPE',col:'#00cc77',pct:88},
+  {name:'EAST ASIA',col:'#ffaa00',pct:76},
+  {name:'MIDDLE EAST',col:'#ff5555',pct:61},
+  {name:'AFRICA',col:'#ffaa00',pct:72},
+  {name:'OCEANIA',col:'#00ff88',pct:91},
+];
+const rl=document.getElementById('region-list');
+REGIONS.forEach(r=>{
+  rl.innerHTML+=`<div class="metric-row">
+    <div class="metric-label">${r.name}</div>
+    <div class="metric-bar"><div class="metric-bar-fill" style="width:${r.pct}%;background:${r.col};box-shadow:0 0 4px ${r.col}"></div></div>
+  </div>`;
+});
+
+// ── MAP SETUP ──
+const mapWrap=document.getElementById('map-wrap');
+const svg=d3.select('#map-svg');
+const tooltip=document.getElementById('tooltip');
+
+// Europe-centered: rotate so longitude 15°E is center
+let currentProj='equirect';
+let rotateEnabled=false;
+let rotAngle=-15;
+let zoomScale=1;
+let zoomTranslate=[0,0];
+let width,height;
+let projection,pathGen,graticule;
+let worldData=null;
+
+// ALL WORLD CAPITALS
+const CAPITALS=[
+  // EUROPE
+  {lon:-3.7,lat:40.4,name:'MADRID',region:'EU-WEST',status:'ACTIVE'},
+  {lon:2.35,lat:48.85,name:'PARIS',region:'EU-WEST',status:'MONITORED'},
+  {lon:-0.12,lat:51.5,name:'LONDON',region:'EU-WEST',status:'SECURED'},
+  {lon:13.4,lat:52.5,name:'BERLIN',region:'EU-CENTRAL',status:'ACTIVE'},
+  {lon:12.5,lat:41.9,name:'ROME',region:'EU-SOUTH',status:'ACTIVE'},
+  {lon:28.95,lat:41.0,name:'ANKARA',region:'EU-EAST',status:'WARNING'},
+  {lon:37.62,lat:55.75,name:'MOSCOW',region:'EU-EAST',status:'CRITICAL'},
+  {lon:30.52,lat:50.45,name:'KYIV',region:'EU-EAST',status:'CRITICAL'},
+  {lon:23.73,lat:37.98,name:'ATHENS',region:'EU-SOUTH',status:'ACTIVE'},
+  {lon:4.35,lat:50.85,name:'BRUSSELS',region:'EU-WEST',status:'SECURED'},
+  {lon:4.9,lat:52.37,name:'AMSTERDAM',region:'EU-WEST',status:'ACTIVE'},
+  {lon:10.75,lat:59.91,name:'OSLO',region:'EU-NORTH',status:'ACTIVE'},
+  {lon:18.06,lat:59.33,name:'STOCKHOLM',region:'EU-NORTH',status:'ACTIVE'},
+  {lon:24.94,lat:60.17,name:'HELSINKI',region:'EU-NORTH',status:'ACTIVE'},
+  {lon:12.57,lat:55.68,name:'COPENHAGEN',region:'EU-NORTH',status:'ACTIVE'},
+  {lon:-9.14,lat:38.72,name:'LISBON',region:'EU-WEST',status:'ACTIVE'},
+  {lon:14.52,lat:46.05,name:'LJUBLJANA',region:'EU-CENTRAL',status:'ACTIVE'},
+  {lon:15.97,lat:45.81,name:'ZAGREB',region:'EU-CENTRAL',status:'ACTIVE'},
+  {lon:21.43,lat:41.99,name:'SKOPJE',region:'EU-SOUTH',status:'ACTIVE'},
+  {lon:19.82,lat:41.33,name:'TIRANA',region:'EU-SOUTH',status:'ACTIVE'},
+  {lon:20.46,lat:44.8,name:'BELGRADE',region:'EU-CENTRAL',status:'ACTIVE'},
+  {lon:18.43,lat:43.85,name:'SARAJEVO',region:'EU-CENTRAL',status:'ACTIVE'},
+  {lon:19.26,lat:42.44,name:'PODGORICA',region:'EU-SOUTH',status:'ACTIVE'},
+  {lon:21.17,lat:42.67,name:'PRISTINA',region:'EU-SOUTH',status:'ACTIVE'},
+  {lon:16.37,lat:48.21,name:'VIENNA',region:'EU-CENTRAL',status:'ACTIVE'},
+  {lon:17.11,lat:48.15,name:'BRATISLAVA',region:'EU-CENTRAL',status:'ACTIVE'},
+  {lon:14.47,lat:50.07,name:'PRAGUE',region:'EU-CENTRAL',status:'ACTIVE'},
+  {lon:19.04,lat:47.5,name:'BUDAPEST',region:'EU-CENTRAL',status:'ACTIVE'},
+  {lon:21.01,lat:52.23,name:'WARSAW',region:'EU-CENTRAL',status:'ACTIVE'},
+  {lon:24.1,lat:56.95,name:'RIGA',region:'EU-NORTH',status:'ACTIVE'},
+  {lon:25.28,lat:54.68,name:'VILNIUS',region:'EU-NORTH',status:'ACTIVE'},
+  {lon:24.75,lat:59.44,name:'TALLINN',region:'EU-NORTH',status:'ACTIVE'},
+  {lon:27.58,lat:53.9,name:'MINSK',region:'EU-EAST',status:'WARNING'},
+  {lon:28.86,lat:47.0,name:'CHISINAU',region:'EU-EAST',status:'ACTIVE'},
+  {lon:44.83,lat:41.69,name:'TBILISI',region:'EU-EAST',status:'ACTIVE'},
+  {lon:49.86,lat:40.41,name:'BAKU',region:'EU-EAST',status:'ACTIVE'},
+  {lon:44.51,lat:40.18,name:'YEREVAN',region:'EU-EAST',status:'ACTIVE'},
+  {lon:9.94,lat:53.55,name:'HAMBURG',region:'EU-CENTRAL',status:'ACTIVE'},
+  {lon:7.45,lat:46.95,name:'BERN',region:'EU-CENTRAL',status:'SECURED'},
+  {lon:6.13,lat:46.2,name:'GENEVA',region:'EU-CENTRAL',status:'SECURED'},
+  {lon:9.19,lat:45.46,name:'MILAN',region:'EU-SOUTH',status:'ACTIVE'},
+  {lon:2.15,lat:41.39,name:'BARCELONA',region:'EU-WEST',status:'ACTIVE'},
+  {lon:-8.61,lat:41.15,name:'PORTO',region:'EU-WEST',status:'ACTIVE'},
+  {lon:26.1,lat:44.43,name:'BUCHAREST',region:'EU-EAST',status:'ACTIVE'},
+  {lon:23.32,lat:42.7,name:'SOFIA',region:'EU-SOUTH',status:'ACTIVE'},
+  {lon:22.0,lat:63.83,name:'UMEA',region:'EU-NORTH',status:'ACTIVE'},
+  {lon:25.75,lat:71.17,name:'TROMSØ',region:'EU-NORTH',status:'ACTIVE'},
+  {lon:-21.9,lat:64.13,name:'REYKJAVIK',region:'EU-NORTH',status:'ACTIVE'},
+  {lon:-6.27,lat:53.33,name:'DUBLIN',region:'EU-WEST',status:'ACTIVE'},
+  {lon:-5.93,lat:54.6,name:'BELFAST',region:'EU-WEST',status:'ACTIVE'},
+  {lon:14.44,lat:35.9,name:'VALLETTA',region:'EU-SOUTH',status:'ACTIVE'},
+  {lon:12.45,lat:43.94,name:'SAN MARINO',region:'EU-SOUTH',status:'ACTIVE'},
+  {lon:12.45,lat:41.9,name:'VATICAN',region:'EU-SOUTH',status:'SECURED'},
+  {lon:7.42,lat:43.73,name:'MONACO',region:'EU-WEST',status:'SECURED'},
+  {lon:1.52,lat:42.51,name:'ANDORRA',region:'EU-WEST',status:'ACTIVE'},
+  {lon:6.13,lat:49.61,name:'LUXEMBOURG',region:'EU-WEST',status:'SECURED'},
+  // AMERICAS
+  {lon:-77.0,lat:38.9,name:'WASHINGTON DC',region:'NA-EAST',status:'SECURED'},
+  {lon:-79.38,lat:43.65,name:'TORONTO',region:'NA-NORTH',status:'ACTIVE'},
+  {lon:-75.7,lat:45.42,name:'OTTAWA',region:'NA-NORTH',status:'ACTIVE'},
+  {lon:-99.13,lat:19.43,name:'MEXICO CITY',region:'NA-SOUTH',status:'WARNING'},
+  {lon:-66.92,lat:10.48,name:'CARACAS',region:'SA-NORTH',status:'WARNING'},
+  {lon:-74.08,lat:4.71,name:'BOGOTA',region:'SA-NORTH',status:'ACTIVE'},
+  {lon:-77.04,lat:-12.04,name:'LIMA',region:'SA-WEST',status:'ACTIVE'},
+  {lon:-68.15,lat:-16.5,name:'LA PAZ',region:'SA-CENTRAL',status:'ACTIVE'},
+  {lon:-43.18,lat:-22.9,name:'BRASILIA',region:'SA-EAST',status:'ACTIVE'},
+  {lon:-58.38,lat:-34.6,name:'BUENOS AIRES',region:'SA-SOUTH',status:'ACTIVE'},
+  {lon:-70.67,lat:-33.45,name:'SANTIAGO',region:'SA-SOUTH',status:'ACTIVE'},
+  {lon:-57.63,lat:-25.28,name:'ASUNCION',region:'SA-CENTRAL',status:'ACTIVE'},
+  {lon:-56.17,lat:-34.9,name:'MONTEVIDEO',region:'SA-SOUTH',status:'ACTIVE'},
+  {lon:-58.0,lat:6.8,name:'GEORGETOWN',region:'SA-NORTH',status:'ACTIVE'},
+  {lon:-55.17,lat:5.83,name:'PARAMARIBO',region:'SA-NORTH',status:'ACTIVE'},
+  {lon:-52.32,lat:4.94,name:'CAYENNE',region:'SA-NORTH',status:'ACTIVE'},
+  {lon:-79.53,lat:8.99,name:'PANAMA CITY',region:'CA',status:'ACTIVE'},
+  {lon:-83.74,lat:9.93,name:'SAN JOSE',region:'CA',status:'ACTIVE'},
+  {lon:-87.2,lat:14.09,name:'TEGUCIGALPA',region:'CA',status:'ACTIVE'},
+  {lon:-87.22,lat:12.13,name:'MANAGUA',region:'CA',status:'ACTIVE'},
+  {lon:-89.2,lat:13.69,name:'SAN SALVADOR',region:'CA',status:'ACTIVE'},
+  {lon:-90.52,lat:14.63,name:'GUATEMALA CITY',region:'CA',status:'ACTIVE'},
+  {lon:-88.77,lat:17.25,name:'BELMOPAN',region:'CA',status:'ACTIVE'},
+  {lon:-72.34,lat:18.54,name:'PORT-AU-PRINCE',region:'CARIB',status:'WARNING'},
+  {lon:-69.9,lat:18.47,name:'SANTO DOMINGO',region:'CARIB',status:'ACTIVE'},
+  {lon:-66.11,lat:18.47,name:'SAN JUAN',region:'CARIB',status:'ACTIVE'},
+  {lon:-77.0,lat:17.99,name:'KINGSTON',region:'CARIB',status:'ACTIVE'},
+  {lon:-77.34,lat:25.05,name:'NASSAU',region:'CARIB',status:'ACTIVE'},
+  {lon:-61.37,lat:15.3,name:'ROSEAU',region:'CARIB',status:'ACTIVE'},
+  {lon:-62.72,lat:17.3,name:'BASSETERRE',region:'CARIB',status:'ACTIVE'},
+  {lon:-61.0,lat:13.16,name:'BRIDGETOWN',region:'CARIB',status:'ACTIVE'},
+  {lon:-61.21,lat:13.16,name:'KINGSTOWN',region:'CARIB',status:'ACTIVE'},
+  {lon:-61.02,lat:14.01,name:'CASTRIES',region:'CARIB',status:'ACTIVE'},
+  {lon:-59.62,lat:13.1,name:'ST.GEORGE\'S',region:'CARIB',status:'ACTIVE'},
+  {lon:-61.38,lat:17.12,name:'ST.JOHN\'S',region:'CARIB',status:'ACTIVE'},
+  {lon:-72.34,lat:10.98,name:'PORT OF SPAIN',region:'CARIB',status:'ACTIVE'},
+  // AFRICA
+  {lon:31.24,lat:30.06,name:'CAIRO',region:'AFRICA-N',status:'WARNING'},
+  {lon:13.51,lat:32.9,name:'TRIPOLI',region:'AFRICA-N',status:'CRITICAL'},
+  {lon:10.18,lat:36.82,name:'TUNIS',region:'AFRICA-N',status:'ACTIVE'},
+  {lon:3.04,lat:36.74,name:'ALGIERS',region:'AFRICA-N',status:'ACTIVE'},
+  {lon:-5.83,lat:33.99,name:'RABAT',region:'AFRICA-N',status:'ACTIVE'},
+  {lon:15.55,lat:15.57,name:'N\'DJAMENA',region:'AFRICA-C',status:'WARNING'},
+  {lon:2.13,lat:13.51,name:'NIAMEY',region:'AFRICA-W',status:'WARNING'},
+  {lon:2.62,lat:12.37,name:'OUAGADOUGOU',region:'AFRICA-W',status:'WARNING'},
+  {lon:-1.69,lat:12.36,name:'BAMAKO',region:'AFRICA-W',status:'WARNING'},
+  {lon:-13.7,lat:9.54,name:'CONAKRY',region:'AFRICA-W',status:'ACTIVE'},
+  {lon:-15.6,lat:11.86,name:'BISSAU',region:'AFRICA-W',status:'ACTIVE'},
+  {lon:-16.58,lat:13.45,name:'BANJUL',region:'AFRICA-W',status:'ACTIVE'},
+  {lon:-17.44,lat:14.69,name:'DAKAR',region:'AFRICA-W',status:'ACTIVE'},
+  {lon:-10.82,lat:6.3,name:'MONROVIA',region:'AFRICA-W',status:'ACTIVE'},
+  {lon:-5.27,lat:6.82,name:'YAMOUSSOUKRO',region:'AFRICA-W',status:'ACTIVE'},
+  {lon:-1.02,lat:5.55,name:'ACCRA',region:'AFRICA-W',status:'ACTIVE'},
+  {lon:2.11,lat:6.37,name:'PORTO-NOVO',region:'AFRICA-W',status:'ACTIVE'},
+  {lon:1.22,lat:6.14,name:'LOME',region:'AFRICA-W',status:'ACTIVE'},
+  {lon:3.39,lat:6.46,name:'ABUJA',region:'AFRICA-W',status:'WARNING'},
+  {lon:13.15,lat:3.87,name:'YAOUNDE',region:'AFRICA-C',status:'ACTIVE'},
+  {lon:9.45,lat:3.85,name:'MALABO',region:'AFRICA-C',status:'ACTIVE'},
+  {lon:8.78,lat:0.39,name:'LIBREVILLE',region:'AFRICA-C',status:'ACTIVE'},
+  {lon:15.28,lat:-4.27,name:'BRAZZAVILLE',region:'AFRICA-C',status:'ACTIVE'},
+  {lon:15.32,lat:-4.32,name:'KINSHASA',region:'AFRICA-C',status:'WARNING'},
+  {lon:18.56,lat:4.36,name:'BANGUI',region:'AFRICA-C',status:'WARNING'},
+  {lon:30.05,lat:3.86,name:'JUBA',region:'AFRICA-E',status:'CRITICAL'},
+  {lon:32.58,lat:15.55,name:'KHARTOUM',region:'AFRICA-N',status:'WARNING'},
+  {lon:38.74,lat:9.02,name:'ADDIS ABABA',region:'AFRICA-E',status:'ACTIVE'},
+  {lon:43.14,lat:11.59,name:'DJIBOUTI',region:'AFRICA-E',status:'ACTIVE'},
+  {lon:45.34,lat:2.05,name:'MOGADISHU',region:'AFRICA-E',status:'CRITICAL'},
+  {lon:36.82,lat:-1.29,name:'NAIROBI',region:'AFRICA-E',status:'ACTIVE'},
+  {lon:32.58,lat:0.32,name:'KAMPALA',region:'AFRICA-E',status:'ACTIVE'},
+  {lon:30.07,lat:-1.94,name:'KIGALI',region:'AFRICA-E',status:'ACTIVE'},
+  {lon:29.36,lat:-3.38,name:'BUJUMBURA',region:'AFRICA-E',status:'ACTIVE'},
+  {lon:35.74,lat:-6.17,name:'DODOMA',region:'AFRICA-E',status:'ACTIVE'},
+  {lon:33.79,lat:-13.95,name:'LILONGWE',region:'AFRICA-S',status:'ACTIVE'},
+  {lon:35.32,lat:-15.37,name:'MAPUTO',region:'AFRICA-S',status:'ACTIVE'},
+  {lon:31.04,lat:-17.83,name:'HARARE',region:'AFRICA-S',status:'ACTIVE'},
+  {lon:25.91,lat:-24.65,name:'GABORONE',region:'AFRICA-S',status:'ACTIVE'},
+  {lon:31.13,lat:-25.97,name:'MBABANE',region:'AFRICA-S',status:'ACTIVE'},
+  {lon:27.47,lat:-29.32,name:'MASERU',region:'AFRICA-S',status:'ACTIVE'},
+  {lon:18.42,lat:-33.9,name:'CAPE TOWN',region:'AFRICA-S',status:'ACTIVE'},
+  {lon:28.05,lat:-26.2,name:'PRETORIA',region:'AFRICA-S',status:'ACTIVE'},
+  {lon:18.55,lat:-22.56,name:'WINDHOEK',region:'AFRICA-S',status:'ACTIVE'},
+  {lon:25.29,lat:-15.42,name:'LUSAKA',region:'AFRICA-S',status:'ACTIVE'},
+  {lon:47.51,lat:-18.91,name:'ANTANANARIVO',region:'AFRICA-E',status:'ACTIVE'},
+  {lon:43.26,lat:-11.7,name:'MORONI',region:'AFRICA-E',status:'ACTIVE'},
+  {lon:55.45,lat:-4.62,name:'VICTORIA',region:'AFRICA-E',status:'ACTIVE'},
+  {lon:-4.0,lat:5.35,name:'YAMOUSSOUKRO',region:'AFRICA-W',status:'ACTIVE'},
+  {lon:6.86,lat:11.52,name:'BANGUI',region:'AFRICA-W',status:'ACTIVE'},
+  {lon:11.52,lat:3.87,name:'YAOUNDE',region:'AFRICA-C',status:'ACTIVE'},
+  {lon:6.36,lat:24.0,name:'TRIPOLI-INNER',region:'AFRICA-N',status:'ACTIVE'},
+  {lon:-11.17,lat:8.48,name:'FREETOWN',region:'AFRICA-W',status:'ACTIVE'},
+  {lon:7.4,lat:9.07,name:'ABUJA',region:'AFRICA-W',status:'WARNING'},
+  // ASIA
+  {lon:139.69,lat:35.68,name:'TOKYO',region:'ASIA-PAC',status:'ACTIVE'},
+  {lon:126.97,lat:37.57,name:'SEOUL',region:'ASIA-PAC',status:'ACTIVE'},
+  {lon:125.75,lat:39.02,name:'PYONGYANG',region:'ASIA-PAC',status:'CRITICAL'},
+  {lon:116.4,lat:39.9,name:'BEIJING',region:'ASIA-EAST',status:'MONITORED'},
+  {lon:121.57,lat:25.04,name:'TAIPEI',region:'ASIA-PAC',status:'MONITORED'},
+  {lon:114.15,lat:22.28,name:'HONG KONG',region:'ASIA-EAST',status:'MONITORED'},
+  {lon:102.7,lat:17.97,name:'VIENTIANE',region:'ASIA-SE',status:'ACTIVE'},
+  {lon:104.92,lat:11.57,name:'PHNOM PENH',region:'ASIA-SE',status:'ACTIVE'},
+  {lon:102.5,lat:2.73,name:'KUALA LUMPUR',region:'ASIA-SE',status:'ACTIVE'},
+  {lon:103.82,lat:1.35,name:'SINGAPORE',region:'ASIA-SE',status:'SECURED'},
+  {lon:106.83,lat:-6.19,name:'JAKARTA',region:'ASIA-SE',status:'ACTIVE'},
+  {lon:121.02,lat:14.55,name:'MANILA',region:'ASIA-SE',status:'ACTIVE'},
+  {lon:100.52,lat:13.75,name:'BANGKOK',region:'ASIA-SE',status:'ACTIVE'},
+  {lon:96.19,lat:19.75,name:'NAY PYI TAW',region:'ASIA-SE',status:'WARNING'},
+  {lon:105.82,lat:21.04,name:'HANOI',region:'ASIA-SE',status:'ACTIVE'},
+  {lon:77.22,lat:28.64,name:'NEW DELHI',region:'ASIA-S',status:'ACTIVE'},
+  {lon:72.88,lat:19.07,name:'MUMBAI',region:'ASIA-S',status:'ACTIVE'},
+  {lon:67.01,lat:24.86,name:'KARACHI',region:'ASIA-S',status:'WARNING'},
+  {lon:73.05,lat:33.72,name:'ISLAMABAD',region:'ASIA-S',status:'WARNING'},
+  {lon:66.95,lat:34.53,name:'KABUL',region:'ASIA-S',status:'CRITICAL'},
+  {lon:85.32,lat:27.72,name:'KATHMANDU',region:'ASIA-S',status:'ACTIVE'},
+  {lon:90.41,lat:23.71,name:'DHAKA',region:'ASIA-S',status:'ACTIVE'},
+  {lon:79.86,lat:6.92,name:'COLOMBO',region:'ASIA-S',status:'ACTIVE'},
+  {lon:89.64,lat:27.47,name:'THIMPHU',region:'ASIA-S',status:'ACTIVE'},
+  {lon:73.51,lat:4.17,name:'MALE',region:'ASIA-S',status:'ACTIVE'},
+  {lon:69.17,lat:41.3,name:'TASHKENT',region:'ASIA-C',status:'ACTIVE'},
+  {lon:74.59,lat:42.87,name:'BISHKEK',region:'ASIA-C',status:'ACTIVE'},
+  {lon:68.78,lat:38.56,name:'DUSHANBE',region:'ASIA-C',status:'ACTIVE'},
+  {lon:57.83,lat:37.95,name:'ASHGABAT',region:'ASIA-C',status:'MONITORED'},
+  {lon:51.19,lat:51.19,name:'NUR-SULTAN',region:'ASIA-C',status:'ACTIVE'},
+  {lon:69.27,lat:34.53,name:'KABUL-CTR',region:'ASIA-C',status:'CRITICAL'},
+  {lon:44.39,lat:33.34,name:'BAGHDAD',region:'ASIA-W',status:'CRITICAL'},
+  {lon:35.22,lat:31.78,name:'JERUSALEM',region:'ASIA-W',status:'CRITICAL'},
+  {lon:35.5,lat:33.89,name:'BEIRUT',region:'ASIA-W',status:'CRITICAL'},
+  {lon:36.3,lat:33.51,name:'DAMASCUS',region:'ASIA-W',status:'CRITICAL'},
+  {lon:35.69,lat:51.42,name:'TEHRAN',region:'ASIA-W',status:'WARNING'},
+  {lon:50.59,lat:26.21,name:'MANAMA',region:'ASIA-W',status:'ACTIVE'},
+  {lon:51.19,lat:25.29,name:'DOHA',region:'ASIA-W',status:'ACTIVE'},
+  {lon:54.36,lat:24.47,name:'ABU DHABI',region:'ASIA-W',status:'ACTIVE'},
+  {lon:58.59,lat:23.61,name:'MUSCAT',region:'ASIA-W',status:'ACTIVE'},
+  {lon:46.68,lat:24.69,name:'RIYADH',region:'ASIA-W',status:'MONITORED'},
+  {lon:44.21,lat:15.36,name:'SANAA',region:'ASIA-W',status:'CRITICAL'},
+  {lon:45.34,lat:11.19,name:'ADEN',region:'ASIA-W',status:'CRITICAL'},
+  {lon:36.82,lat:34.18,name:'AMMAN',region:'ASIA-W',status:'ACTIVE'},
+  {lon:32.85,lat:39.93,name:'ANKARA-RELAY',region:'ASIA-W',status:'WARNING'},
+  {lon:35.48,lat:33.9,name:'NICOSIA',region:'ASIA-W',status:'ACTIVE'},
+  // OCEANIA
+  {lon:149.13,lat:-35.31,name:'CANBERRA',region:'OCEANIA',status:'ACTIVE'},
+  {lon:174.77,lat:-36.87,name:'AUCKLAND',region:'OCEANIA',status:'ACTIVE'},
+  {lon:174.78,lat:-41.29,name:'WELLINGTON',region:'OCEANIA',status:'ACTIVE'},
+  {lon:178.44,lat:-18.14,name:'SUVA',region:'OCEANIA',status:'ACTIVE'},
+  {lon:158.15,lat:6.91,name:'PALIKIR',region:'OCEANIA',status:'ACTIVE'},
+  {lon:134.97,lat:7.49,name:'NGERULMUD',region:'OCEANIA',status:'ACTIVE'},
+  {lon:171.38,lat:7.12,name:'MAJURO',region:'OCEANIA',status:'ACTIVE'},
+  {lon:-171.0,lat:-13.8,name:'APIA',region:'OCEANIA',status:'ACTIVE'},
+  {lon:-175.22,lat:-21.14,name:'NUKU\'ALOFA',region:'OCEANIA',status:'ACTIVE'},
+  {lon:166.45,lat:-22.27,name:'PORT VILA',region:'OCEANIA',status:'ACTIVE'},
+  {lon:160.16,lat:-9.43,name:'HONIARA',region:'OCEANIA',status:'ACTIVE'},
+  {lon:147.18,lat:-9.46,name:'PORT MORESBY',region:'OCEANIA',status:'ACTIVE'},
+  {lon:-17.36,lat:-14.29,name:'ALOFI',region:'OCEANIA',status:'ACTIVE'},
+  {lon:166.92,lat:-0.55,name:'TARAWA',region:'OCEANIA',status:'ACTIVE'},
+  {lon:-159.78,lat:-21.21,name:'AVARUA',region:'OCEANIA',status:'ACTIVE'},
+  {lon:169.92,lat:-29.07,name:'KINGSTON',region:'OCEANIA',status:'ACTIVE'},
+  {lon:-177.45,lat:-13.95,name:'FUNAFUTI',region:'OCEANIA',status:'ACTIVE'},
+  {lon:166.93,lat:-0.52,name:'YAREN',region:'OCEANIA',status:'ACTIVE'},
+];
+
+// Keep original HOTSPOTS for threat display (subset)
+const HOTSPOTS=CAPITALS;
+const THREAT_COLORS={'CRITICAL':'#ff3333','WARNING':'#ffaa00','MONITORED':'#00aaff','ACTIVE':'#00ff88','SECURED':'#00ff88','CLEAR':'rgba(0,255,136,0.3)'};
+
+function getSize(){
+  width=mapWrap.clientWidth||800;
+  height=mapWrap.clientHeight||500;
+  svg.attr('width',width).attr('height',height);
+}
+
+function makeProjection(){
+  const cx=width/2, cy=height/2;
+  const euroShiftY = height*0.08;
+  let scale=Math.min(width,height)*0.25;
+  if(currentProj==='equirect') scale=Math.min(width/5.8,height/3.0);
+  if(currentProj==='mercator') scale=Math.min(width/6.2,height/4.5);
+  if(currentProj==='ortho') scale=Math.min(width,height)*0.38;
+  if(currentProj==='naturalEarth') scale=Math.min(width/5.6,height/2.9);
+  scale*=zoomScale;
+  const tx=cx+zoomTranslate[0];
+  const ty=cy+zoomTranslate[1]+euroShiftY;
+  if(currentProj==='equirect') return d3.geoEquirectangular().scale(scale).translate([tx,ty]).rotate([-rotAngle,0,0]);
+  if(currentProj==='mercator') return d3.geoMercator().scale(scale).translate([tx,ty]).rotate([-rotAngle,0,0]).clipExtent([[0,0],[width,height]]);
+  if(currentProj==='ortho') return d3.geoOrthographic().scale(scale).translate([cx+zoomTranslate[0],cy+zoomTranslate[1]]).rotate([rotAngle,-20,0]);
+  if(currentProj==='naturalEarth') return d3.geoNaturalEarth1().scale(scale).translate([tx,ty]).rotate([-rotAngle,0,0]);
+  return d3.geoEquirectangular().scale(scale).translate([tx,ty]);
+}
+
+function renderMap(){
+  svg.selectAll('*').remove();
+  getSize();
+  projection=makeProjection();
+  pathGen=d3.geoPath().projection(projection);
+  graticule=d3.geoGraticule()();
+
+  // Background for ortho
+  if(currentProj==='ortho'){
+    svg.append('circle')
+      .attr('cx',width/2+zoomTranslate[0]).attr('cy',height/2+zoomTranslate[1])
+      .attr('r',projection.scale())
+      .attr('fill','#030f06').attr('stroke','rgba(0,255,136,0.2)').attr('stroke-width','1');
+  }
+
+  // Sphere outline
+  svg.append('path').datum({type:'Sphere'})
+    .attr('class','sphere-outline').attr('d',pathGen);
+
+  // Graticule
+  svg.append('path').datum(graticule)
+    .attr('class','graticule').attr('d',pathGen);
+
+  // Countries
+  if(worldData){
+    const countries=topojson.feature(worldData,worldData.objects.countries).features;
+    svg.append('g').selectAll('path')
+      .data(countries).join('path')
+      .attr('class','land')
+      .attr('d',pathGen)
+      .on('mouseover',(e,d)=>{
+        d3.select(e.target).attr('fill','#1a3d1f');
+        tooltip.style.display='block';
+        const n=d.properties&&d.properties.name?d.properties.name:'UNKNOWN';
+        document.getElementById('tt-name').textContent=n.toUpperCase();
+        document.getElementById('tt-region').textContent=getRegion(d);
+        document.getElementById('tt-status').textContent='MONITORED';
+        document.getElementById('tt-threat').textContent='LOW';
+      })
+      .on('mousemove',e=>{
+        const [mx,my]=[e.offsetX,e.offsetY];
+        const tx=mx+16>width-160?mx-160:mx+16;
+        const ty=my+80>height?my-90:my+10;
+        tooltip.style.left=tx+'px'; tooltip.style.top=ty+'px';
+        const coords=projection.invert([mx,my]);
+        if(coords){
+          document.getElementById('ov-lon').textContent=coords[0].toFixed(2)+'°';
+          document.getElementById('ov-lat').textContent=coords[1].toFixed(2)+'°';
+          document.getElementById('bot-lon').textContent=coords[0].toFixed(3)+'°';
+          document.getElementById('bot-lat').textContent=coords[1].toFixed(3)+'°';
+        }
+      })
+      .on('mouseout',e=>{
+        d3.select(e.target).attr('fill',null);
+        tooltip.style.display='none';
+      });
+
+    // Borders between countries
+    svg.append('path')
+      .datum(topojson.mesh(worldData,worldData.objects.countries,(a,b)=>a!==b))
+      .attr('fill','none').attr('stroke','rgba(0,255,136,0.2)').attr('stroke-width','0.4')
+      .attr('d',pathGen);
+  }
+
+  // Crosshair lines
+  const chg=svg.append('g');
+  chg.append('line').attr('class','crosshair-h')
+    .attr('x1',0).attr('y1',height/2).attr('x2',width).attr('y2',height/2);
+  chg.append('line').attr('class','crosshair-v')
+    .attr('x1',width/2).attr('y1',0).attr('x2',width/2).attr('y2',height);
+
+  // Capitals — tiny dots
+  const hg=svg.append('g');
+  const dotR=Math.max(1.5,Math.min(3.5,zoomScale*2));
+  CAPITALS.forEach(h=>{
+    const pos=projection([h.lon,h.lat]);
+    if(!pos) return;
+    const [px,py]=pos;
+    if(px<-10||px>width+10||py<-10||py>height+10) return;
+    const col=THREAT_COLORS[h.status]||'#00ff88';
+    const isCrit=h.status==='CRITICAL'||h.status==='WARNING';
+    const g=hg.append('g').attr('class','hotspot').attr('transform',`translate(${px},${py})`);
+    if(isCrit){
+      g.append('circle').attr('r',dotR+3).attr('fill','none').attr('stroke',col)
+        .attr('stroke-width',0.8).attr('opacity',0.4)
+        .style('animation','hotpulse 2s ease-in-out infinite');
+    }
+    g.append('circle').attr('r',dotR).attr('fill',col).attr('stroke','rgba(0,0,0,0.5)')
+      .attr('stroke-width',0.5).attr('opacity',0.9);
+    if(isCrit){
+      g.append('text').attr('class','hotspot-label').attr('x',dotR+3).attr('y',-3)
+        .attr('fill',col).attr('font-size','6.5px').text(h.name);
+    }
+    g.append('circle').attr('r',Math.max(6,dotR+4)).attr('fill','transparent')
+      .on('mouseover',()=>{
+        tooltip.style.display='block';
+        document.getElementById('tt-name').textContent=h.name;
+        document.getElementById('tt-region').textContent=h.region;
+        document.getElementById('tt-status').textContent=h.status;
+        document.getElementById('tt-threat').textContent=h.status==='CRITICAL'?'CRITICAL':h.status==='WARNING'?'ELEVATED':'LOW';
+      })
+      .on('mousemove',e=>{
+        const mx=e.offsetX,my=e.offsetY;
+        const tx2=mx+16>width-160?mx-160:mx+16;
+        const ty2=my+80>height?my-90:my+10;
+        tooltip.style.left=tx2+'px'; tooltip.style.top=ty2+'px';
+      })
+      .on('mouseout',()=>tooltip.style.display='none');
+  });
+}
+
+function getRegion(d){
+  const lon=d.properties?parseFloat(d.properties.longitude)||0:0;
+  if(lon>-20&&lon<60) return 'EUROPE/AFRICA';
+  if(lon>=60&&lon<150) return 'ASIA-PACIFIC';
+  if(lon>=-180&&lon<-20) return 'AMERICAS';
+  return 'GLOBAL';
+}
+
+// ── LOAD WORLD DATA ──
+d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(data=>{
+  worldData=data;
+  getSize();
+  renderMap();
+}).catch(()=>{
+  // Fallback: render graticule only
+  getSize(); renderMap();
+});
+
+// ── AUTO ROTATE ──
+let lastTime=0;
+function animLoop(ts){
+  requestAnimationFrame(animLoop);
+  if(rotateEnabled&&currentProj!=='ortho'){
+    if(ts-lastTime>50){
+      rotAngle=(rotAngle+0.15)%360;
+      if(worldData) renderMap();
+      lastTime=ts;
+    }
+  } else if(rotateEnabled&&currentProj==='ortho'){
+    if(ts-lastTime>50){
+      rotAngle=(rotAngle+0.2)%360;
+      if(worldData) renderMap();
+      lastTime=ts;
+    }
+  }
+}
+requestAnimationFrame(animLoop);
+
+// ── CONTROLS ──
+function changeZoom(f){
+  zoomScale=Math.max(0.5,Math.min(8,zoomScale*f));
+  document.getElementById('ov-zoom').textContent=zoomScale.toFixed(1)+'x';
+  renderMap();
+}
+function resetView(){
+  zoomScale=1; zoomTranslate=[0,0]; rotAngle=0;
+  document.getElementById('ov-zoom').textContent='1.0x';
+  renderMap();
+}
+function toggleRotate(){
+  rotateEnabled=!rotateEnabled;
+  const btn=document.getElementById('rot-btn');
+  btn.classList.toggle('active',rotateEnabled);
+}
+function setProj(p,label){
+  currentProj=p;
+  document.querySelectorAll('.proj-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('proj-label').textContent=label;
+  document.getElementById('ov-proj').textContent=label.split('.')[0];
+  renderMap();
+}
+
+// ── DRAG TO PAN ──
+let dragging=false,dragStart=[0,0],dragStartTranslate=[0,0];
+document.getElementById('map-svg').addEventListener('mousedown',e=>{
+  dragging=true;
+  dragStart=[e.clientX,e.clientY];
+  dragStartTranslate=[...zoomTranslate];
+  rotateEnabled=false;
+  document.getElementById('rot-btn').classList.remove('active');
+});
+document.addEventListener('mousemove',e=>{
+  if(!dragging)return;
+  const dx=e.clientX-dragStart[0], dy=e.clientY-dragStart[1];
+  zoomTranslate=[dragStartTranslate[0]+dx,dragStartTranslate[1]+dy];
+  renderMap();
+});
+document.addEventListener('mouseup',()=>{ dragging=false; });
+
+// ── RESIZE ──
+window.addEventListener('resize',()=>{ getSize(); renderMap(); refreshSparks(); });
+</script>
+</body>
+</html>
